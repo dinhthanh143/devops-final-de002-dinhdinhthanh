@@ -1,0 +1,24 @@
+FROM gradle:jdk21-alpine AS build
+WORKDIR /workspace
+
+COPY build.gradle settings.gradle ./
+RUN gradle dependencies --no-daemon || true
+
+COPY src ./src
+RUN gradle bootJar -x test --no-daemon
+
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION} \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
+
+WORKDIR /app
+
+RUN addgroup -S spring && adduser -S spring -G spring
+COPY --from=build /workspace/build/libs/app.jar /app/app.jar
+USER spring
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
